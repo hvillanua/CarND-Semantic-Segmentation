@@ -125,6 +125,7 @@ def test_train_nn(train_nn):
     correct_label = tf.placeholder(tf.float32, name='correct_label')
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     learning_rate = tf.placeholder(tf.float32, name='learning_rate')
+    is_training = tf.placeholder(tf.bool, name='is_training')
     with tf.Session() as sess:
         parameters = {
             'sess': sess,
@@ -136,8 +137,9 @@ def test_train_nn(train_nn):
             'input_image': input_image,
             'correct_label': correct_label,
             'keep_prob': keep_prob,
-            'learning_rate': learning_rate}
-        _prevent_print(train_nn, parameters)
+            'learning_rate': learning_rate,
+            'is_training': is_training}
+        #_prevent_print(train_nn, parameters)
 
 
 @test_safe
