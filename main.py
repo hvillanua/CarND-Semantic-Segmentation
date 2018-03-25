@@ -1,3 +1,9 @@
+
+# coding: utf-8
+
+# In[1]:
+
+
 import os.path
 import tensorflow as tf
 import helper
@@ -18,6 +24,10 @@ if not tf.test.gpu_device_name():
     warnings.warn('No GPU found. Please use a GPU to train your neural network.')
 else:
     print('Default GPU Device: {}'.format(tf.test.gpu_device_name()))
+
+
+# In[2]:
+
 
 def load_vgg(sess, vgg_path):
     """
@@ -45,6 +55,10 @@ def load_vgg(sess, vgg_path):
     return x, keep_prob, layer3, layer4, layer7
 tests.test_load_vgg(load_vgg, tf)
 
+
+# In[3]:
+
+
 def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, is_training=False):
     """
     Create the layers for a fully convolutional network.  Build skip-layers using the vgg layers.
@@ -61,44 +75,54 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes, is_train
     vgg_l3_scaled = tf.multiply(vgg_layer3_out, 0.0001)
     vgg_l3_1x1 = tf.layers.conv2d(vgg_l3_scaled,
                                   num_classes, 1, 1, padding='SAME',
-                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                 kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                  #activation=tf.nn.elu)
 
     #vgg_layer4_out = tf.layers.batch_normalization(vgg_layer4_out, training=is_training)
     vgg_l4_scaled = tf.multiply(vgg_layer4_out, 0.01)
     vgg_l4_1x1 = tf.layers.conv2d(vgg_l4_scaled,
                                   num_classes, 1, 1, padding='SAME',
-                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                 kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                  #activation=tf.nn.elu)
     
     #vgg_layer7_out = tf.layers.batch_normalization(vgg_layer7_out, training=is_training)
     vgg_l7_1x1 = tf.layers.conv2d(vgg_layer7_out,
                                   num_classes, 1, 1, padding='SAME',
-                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                  kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                 kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                  #activation=tf.nn.elu)
     
     # Use 1x1 conv on vgg layers to reduce number of filters to num_classes
     conv1_t = tf.layers.conv2d_transpose(vgg_l7_1x1, num_classes, 4, 2,
                                        padding='SAME',
-                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                         #activation=tf.nn.elu)
     conv1_t = tf.layers.batch_normalization(conv1_t, training=is_training)
     
     conv2_t = tf.add(vgg_l4_1x1, conv1_t)
     conv2_t = tf.layers.conv2d_transpose(conv2_t, num_classes, 4, 2,
                                          padding='SAME',
-                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                         #activation=tf.nn.elu)
     conv2_t = tf.layers.batch_normalization(conv2_t, training=is_training)
     
     conv3_t = tf.add(vgg_l3_1x1, conv2_t)
     conv3_t = tf.layers.conv2d_transpose(conv3_t, num_classes, 16, 8, 
                                          padding='SAME',
-                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01))
+                                         kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                        kernel_regularizer= tf.contrib.layers.l2_regularizer(1e-3))
                                         #activation=tf.nn.elu)
     return conv3_t
 
 tests.test_layers(layers)
+
+
+# In[4]:
+
 
 def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     """
@@ -112,9 +136,17 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     logits = tf.reshape(nn_last_layer, (-1, num_classes), name='logits')
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
                                                               labels=correct_label))
+    reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+    reg_constant = 0.01  # Choose an appropriate one.
+    cost = cost + reg_constant * sum(reg_losses)
+    
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
     return logits, optimizer, cost
 tests.test_optimize(optimize)
+
+
+# In[5]:
+
 
 # Helper functions
 
@@ -166,6 +198,9 @@ def augment(images, labels):
     return augmented_imgs, augmented_labels
 
 
+# In[6]:
+
+
 def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
              correct_label, keep_prob, learning_rate, is_training):
     """
@@ -189,13 +224,17 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
             pre_images = preprocess(images)
             aug_images, aug_labels = augment(pre_images, labels)
             sess.run(train_op, feed_dict = {input_image: aug_images, correct_label: aug_labels,
-                                            keep_prob: 1, learning_rate: 0.0011,
+                                            keep_prob: 1, learning_rate: 0.0005,
                                             is_training: True})
         loss = sess.run(cross_entropy_loss, feed_dict = {input_image: aug_images, correct_label: aug_labels,
-                                            keep_prob: 1, learning_rate: 0.0011,
+                                            keep_prob: 1, learning_rate: 0.0005,
                                                          is_training: False})
         print('Training loss:', loss)
 tests.test_train_nn(train_nn)
+
+
+# In[7]:
+
 
 def run():
     num_classes = 2
@@ -225,7 +264,7 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         epochs = 50
-        batch_size = 10
+        batch_size = 5
         correct_label = tf.placeholder(tf.int32, [None, None, None, num_classes], name='correct_label')
         learning_rate = tf.placeholder(tf.float32, name='learning_rate')
         is_training = tf.placeholder(tf.bool, name='is_training')
@@ -244,4 +283,10 @@ def run():
 
 if __name__ == '__main__':
     run()
+
+
+# In[ ]:
+
+
+
 
